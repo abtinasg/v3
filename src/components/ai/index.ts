@@ -1,2 +1,2 @@
 // AI components
-export {};
+export { AIChatPanel } from "./AIChatPanel";
