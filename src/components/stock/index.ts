@@ -1,2 +1,1 @@
-// Stock components
-export {};
+export { StockHeader } from "./StockHeader"
