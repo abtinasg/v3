@@ -11,6 +11,13 @@ interface TerminalState {
   clearIndices: () => void
   /** Set specific selected indices */
   setSelectedIndices: (symbols: string[]) => void
+
+  /** Currently selected sector symbol */
+  selectedSector: string | null
+  /** Select a sector (or deselect if same) */
+  selectSector: (symbol: string) => void
+  /** Clear sector selection */
+  clearSector: () => void
 }
 
 export const useTerminalStore = create<TerminalState>((set) => ({
@@ -26,4 +33,13 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   clearIndices: () => set({ selectedIndices: [] }),
 
   setSelectedIndices: (symbols) => set({ selectedIndices: symbols }),
+
+  selectedSector: null,
+
+  selectSector: (symbol) =>
+    set((state) => ({
+      selectedSector: state.selectedSector === symbol ? null : symbol,
+    })),
+
+  clearSector: () => set({ selectedSector: null }),
 }))
