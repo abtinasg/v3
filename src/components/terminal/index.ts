@@ -6,3 +6,6 @@ export { default as IndicesPanel } from "./IndicesPanel";
 
 export { SectorsPanel } from "./SectorsPanel";
 export { default as SectorsPanel } from "./SectorsPanel";
+
+export { PerformanceChart } from "./PerformanceChart";
+export { default as PerformanceChart } from "./PerformanceChart";
