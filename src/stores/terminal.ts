@@ -2,6 +2,8 @@
 
 import { create } from "zustand"
 
+type TimeRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "5Y"
+
 interface TerminalState {
   /** Currently selected index symbols for highlighting */
   selectedIndices: string[]
@@ -18,6 +20,11 @@ interface TerminalState {
   selectSector: (symbol: string) => void
   /** Clear sector selection */
   clearSector: () => void
+
+  /** Chart time range */
+  timeRange: TimeRange
+  /** Set the chart time range */
+  setTimeRange: (range: TimeRange) => void
 }
 
 export const useTerminalStore = create<TerminalState>((set) => ({
@@ -42,4 +49,8 @@ export const useTerminalStore = create<TerminalState>((set) => ({
     })),
 
   clearSector: () => set({ selectedSector: null }),
+
+  timeRange: "1M",
+
+  setTimeRange: (range) => set({ timeRange: range }),
 }))

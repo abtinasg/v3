@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import type { TooltipProps } from "recharts";
 import {
   CartesianGrid,
@@ -12,6 +13,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import { useTerminalStore } from "@/stores";
+import type { OHLCV } from "@/types";
 
 const LINE_COLORS = [
   "#60a5fa",
@@ -247,6 +251,204 @@ export function generateMockPerformanceData(
   }
 
   return data;
+}
+
+// =============================================================================
+// API Response Types
+// =============================================================================
+
+interface ChartAPIResponse {
+  success: boolean;
+  data?: {
+    symbol: string;
+    range: string;
+    interval: string;
+    data: Array<{
+      timestamp: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume: number;
+    }>;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// =============================================================================
+// Data Combination Utilities
+// =============================================================================
+
+/**
+ * Combine multiple symbol chart data into a single ChartDataPoint array
+ * Each symbol becomes a key in the data points with its closing price
+ */
+function combineChartData(
+  chartsData: Array<{ symbol: string; data: OHLCV[] } | null>
+): ChartDataPoint[] {
+  // Filter out null/undefined and empty data
+  const validCharts = chartsData.filter(
+    (chart): chart is { symbol: string; data: OHLCV[] } =>
+      chart !== null && chart.data.length > 0
+  );
+
+  if (validCharts.length === 0) {
+    return [];
+  }
+
+  // Use the first chart's timestamps as the base
+  const baseChart = validCharts[0];
+  
+  // Create a map of timestamp -> combined data point
+  const dataMap = new Map<string, ChartDataPoint>();
+
+  // Initialize with base chart timestamps
+  baseChart.data.forEach((point) => {
+    const dateKey = point.timestamp instanceof Date
+      ? point.timestamp.toISOString()
+      : new Date(point.timestamp).toISOString();
+    
+    dataMap.set(dateKey, {
+      date: dateKey,
+      [baseChart.symbol]: point.close,
+    });
+  });
+
+  // Add other symbols' data
+  validCharts.slice(1).forEach((chart) => {
+    chart.data.forEach((point) => {
+      const dateKey = point.timestamp instanceof Date
+        ? point.timestamp.toISOString()
+        : new Date(point.timestamp).toISOString();
+
+      const existing = dataMap.get(dateKey);
+      if (existing) {
+        existing[chart.symbol] = point.close;
+      }
+    });
+  });
+
+  // Convert map to sorted array
+  return Array.from(dataMap.values()).sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+}
+
+// =============================================================================
+// Connected Performance Chart
+// =============================================================================
+
+/**
+ * Connected PerformanceChart that fetches real data from the API
+ * Uses the terminal store for selected indices and time range
+ */
+export function ConnectedPerformanceChart() {
+  const { selectedIndices, timeRange, setTimeRange } = useTerminalStore();
+
+  // Default symbols if none selected
+  const symbols = selectedIndices.length > 0 ? selectedIndices : ["SPY"];
+
+  // Fetch chart data for each selected symbol
+  const chartQueries = useQueries({
+    queries: symbols.map((symbol) => ({
+      queryKey: ["stock", "chart", symbol, timeRange],
+      queryFn: async (): Promise<{ symbol: string; data: OHLCV[] }> => {
+        const response = await fetch(
+          `/api/stocks/${encodeURIComponent(symbol)}/chart?range=${timeRange}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch chart for ${symbol}`);
+        }
+
+        const json: ChartAPIResponse = await response.json();
+
+        if (!json.success || !json.data) {
+          throw new Error(json.error?.message ?? `No data for ${symbol}`);
+        }
+
+        return {
+          symbol,
+          data: json.data.data.map((point) => ({
+            timestamp: new Date(point.timestamp),
+            open: point.open,
+            high: point.high,
+            low: point.low,
+            close: point.close,
+            volume: point.volume,
+          })),
+        };
+      },
+      staleTime: timeRange === "1D" ? 60_000 : 5 * 60_000,
+      enabled: Boolean(symbol),
+    })),
+  });
+
+  // Combine loading states
+  const isLoading = chartQueries.some((q) => q.isLoading);
+  const hasError = chartQueries.some((q) => q.isError);
+
+  // Combine chart data from all queries
+  const combinedData = useMemo(() => {
+    const chartsData = chartQueries
+      .filter((q) => q.isSuccess && q.data)
+      .map((q) => q.data as { symbol: string; data: OHLCV[] });
+
+    return combineChartData(chartsData);
+  }, [chartQueries]);
+
+  // Handle time range change
+  const handleTimeRangeChange = (range: string) => {
+    if (["1D", "1W", "1M", "3M", "1Y", "5Y"].includes(range)) {
+      setTimeRange(range as "1D" | "1W" | "1M" | "3M" | "1Y" | "5Y");
+    }
+  };
+
+  // Show error state
+  if (hasError && !isLoading && combinedData.length === 0) {
+    return (
+      <div className="space-y-4 rounded-lg border border-[#1f2937] bg-[#0f172a] p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Performance</h3>
+            <p className="text-xs text-red-400">Failed to load chart data</p>
+          </div>
+          <div className="flex gap-2">
+            {TIME_RANGES.map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => handleTimeRangeChange(range)}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                  range === timeRange
+                    ? "bg-blue-500 text-white shadow-sm"
+                    : "bg-[#111827] text-gray-300 hover:bg-[#1f2937]"
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex h-72 items-center justify-center text-gray-500">
+          Unable to load performance data
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PerformanceChart
+      data={combinedData}
+      symbols={symbols}
+      timeRange={timeRange}
+      onTimeRangeChange={handleTimeRangeChange}
+      isLoading={isLoading}
+    />
+  );
 }
 
 export default PerformanceChart;
