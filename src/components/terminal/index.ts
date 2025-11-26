@@ -9,3 +9,6 @@ export { default as SectorsPanel } from "./SectorsPanel";
 
 export { PerformanceChart } from "./PerformanceChart";
 export { default as PerformanceChart } from "./PerformanceChart";
+
+export { NewsFeed } from "./NewsFeed";
+export { default as NewsFeed } from "./NewsFeed";
