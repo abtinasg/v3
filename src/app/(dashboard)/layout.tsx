@@ -1,10 +1,10 @@
-import TerminalHeader from '@/components/terminal/TerminalHeader';
-import { Providers } from '../providers';
+import TerminalHeader from "@/components/terminal/TerminalHeader"
+import { Providers } from "@/app/providers"
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <Providers>
