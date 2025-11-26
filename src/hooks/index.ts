@@ -1,4 +1,5 @@
 // Custom React hooks
+export * from "./use-user"
 
 // Market data hooks
 export { useIndices, useSectors, useMacro, useNews } from "./use-market"
