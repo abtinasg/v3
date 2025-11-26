@@ -1,121 +1,166 @@
-type StockPageProps = {
-  params: Promise<{ symbol: string }>;
-};
+"use client"
 
-export default async function StockPage({ params }: StockPageProps) {
-  const { symbol } = await params;
-  const upperSymbol = symbol.toUpperCase();
+import { useMemo, useState } from "react"
+import { AlertTriangle, Loader2 } from "lucide-react"
+
+import { MetricsGrid, RiskPanel, StockChart, StockHeader } from "@/components/stock"
+import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  useAddToStudyList,
+  useChart,
+  useFundamentals,
+  useProfile,
+  useQuote,
+  useRisk,
+  useStudyList,
+} from "@/hooks"
+
+type StockPageProps = {
+  params: { symbol: string }
+}
+
+function HeaderSkeleton() {
+  return (
+    <Card className="border-border/60 bg-card/50 p-6 backdrop-blur">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-5 w-48" />
+        </div>
+        <div className="space-y-2 text-left lg:text-center">
+          <Skeleton className="h-10 w-40" />
+          <Skeleton className="h-5 w-32" />
+        </div>
+        <Skeleton className="h-10 w-44" />
+      </div>
+    </Card>
+  )
+}
+
+function SectionSkeleton() {
+  return (
+    <Card className="border-border/60 bg-card/50">
+      <CardContent className="space-y-4 p-6">
+        <Skeleton className="h-6 w-36" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export default function StockPage({ params }: StockPageProps) {
+  const symbol = useMemo(() => params.symbol?.toUpperCase() ?? "", [params.symbol])
+  const [chartRange, setChartRange] = useState("1M")
+  const [chartType] = useState<"line" | "candlestick">("candlestick")
+
+  const { data: profile } = useProfile()
+  const tier = profile?.subscription ?? "free"
+
+  const { data: quote, isLoading: quoteLoading, error: quoteError } = useQuote(symbol)
+  const { data: fundamentals, isLoading: fundamentalsLoading } = useFundamentals(symbol)
+  const { data: risk, isLoading: riskLoading } = useRisk(symbol)
+  const { data: chart, isLoading: chartLoading } = useChart(symbol, chartRange)
+
+  const { data: studyList } = useStudyList()
+  const addToStudyList = useAddToStudyList()
+
+  const isInStudyList = useMemo(
+    () => Boolean(studyList?.items?.some((item) => item.symbol === symbol)),
+    [studyList?.items, symbol]
+  )
+
+  const handleAddToStudyList = () => {
+    if (quote?.symbol) {
+      addToStudyList.mutate(quote.symbol)
+    }
+  }
+
+  const handleExplain = (metricId: string) => {
+    console.info(`Explain metric: ${metricId}`)
+  }
+
+  const symbolNotFound =
+    (quoteError && quoteError.message?.toLowerCase().includes("not found")) ||
+    (!quote && !quoteLoading)
+
+  if (symbolNotFound) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0e17] px-6 text-white">
+        <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-200">
+          <AlertTriangle className="size-5" aria-hidden />
+          <div>
+            <p className="text-lg font-semibold">Symbol not found</p>
+            <p className="text-sm text-red-100/80">{symbol ? `${symbol} could not be located.` : "Please provide a symbol."}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0e17] text-white">
-      <StockHeader symbol={upperSymbol} />
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6">
+        {quoteLoading && !quote ? (
+          <HeaderSkeleton />
+        ) : quote ? (
+          <StockHeader
+            symbol={quote.symbol}
+            name={quote.name}
+            exchange={quote.exchange}
+            price={quote.price}
+            change={quote.change}
+            changePercent={quote.changePercent}
+            marketCap={quote.marketCap}
+            onAddToStudyList={handleAddToStudyList}
+            isInStudyList={isInStudyList || addToStudyList.isPending}
+          />
+        ) : null}
 
-      <div className="p-6 space-y-6">
-        <StockChart symbol={upperSymbol} />
+        <StockChart
+          symbol={symbol}
+          data={chart ?? []}
+          chartType={chartType}
+          timeRange={chartRange}
+          onTimeRangeChange={setChartRange}
+          isLoading={chartLoading && !(chart?.length)}
+        />
 
-        <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-8">
-            <MetricsGrid symbol={upperSymbol} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-8">
+            {fundamentalsLoading && !fundamentals ? (
+              <SectionSkeleton />
+            ) : fundamentals ? (
+              <MetricsGrid metrics={fundamentals} onExplain={handleExplain} tier={tier} />
+            ) : (
+              <Card className="border-border/60 bg-card/40">
+                <CardContent className="flex items-center gap-3 p-6 text-muted-foreground">
+                  <Loader2 className="size-5 animate-spin" aria-hidden />
+                  <span>Loading fundamentals...</span>
+                </CardContent>
+              </Card>
+            )}
           </div>
-          <div className="col-span-12 lg:col-span-4">
-            <RiskPanel symbol={upperSymbol} />
+          <div className="lg:col-span-4">
+            {riskLoading && !risk ? (
+              <SectionSkeleton />
+            ) : risk ? (
+              <RiskPanel riskMetrics={risk} onExplain={handleExplain} tier={tier} />
+            ) : (
+              <Card className="border-border/60 bg-card/40">
+                <CardContent className="flex items-center gap-3 p-6 text-muted-foreground">
+                  <Loader2 className="size-5 animate-spin" aria-hidden />
+                  <span>Loading risk metrics...</span>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-// =============================================================================
-// PLACEHOLDER COMPONENTS
-// Replace with real implementations once ready
-// =============================================================================
-
-type SectionProps = {
-  symbol: string;
-};
-
-function StockHeader({ symbol }: SectionProps) {
-  return (
-    <header className="w-full border-b border-white/10 bg-white/5 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <div>
-          <p className="text-sm uppercase text-white/60">Stock Dashboard</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{symbol}</h1>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-white/60">Last updated just now</p>
-          <p className="text-lg font-medium">Realtime data coming soon</p>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function StockChart({ symbol }: SectionProps) {
-  return (
-    <section className="rounded-xl border border-white/10 bg-white/5 p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Price Action</h2>
-          <p className="text-sm text-white/60">Interactive chart for {symbol}</p>
-        </div>
-        <div className="flex gap-2">
-          {['1D', '1W', '1M', '3M', '1Y', '5Y'].map((range) => (
-            <button
-              key={range}
-              className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/80"
-            >
-              {range}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-white/10 bg-[#0f1422]">
-        <p className="text-white/50">Chart component placeholder</p>
-      </div>
-    </section>
-  );
-}
-
-function MetricsGrid({ symbol }: SectionProps) {
-  return (
-    <section className="rounded-xl border border-white/10 bg-white/5 p-6">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold">Fundamental Metrics</h2>
-        <p className="text-sm text-white/60">Key stats and ratios for {symbol}</p>
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div
-            key={index}
-            className="rounded-lg border border-white/10 bg-[#0f1422] p-4"
-          >
-            <p className="text-xs uppercase tracking-wide text-white/50">Metric {index + 1}</p>
-            <p className="mt-2 text-2xl font-semibold">--</p>
-            <p className="text-xs text-white/40">Value coming soon</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RiskPanel({ symbol }: SectionProps) {
-  return (
-    <aside className="rounded-xl border border-white/10 bg-gradient-to-b from-[#141a2b] to-[#0a0e17] p-6">
-      <h2 className="text-xl font-semibold">Risk Overview</h2>
-      <p className="text-sm text-white/60">Risk analytics for {symbol}</p>
-
-      <div className="mt-6 space-y-4">
-        {['Overall Risk', 'Market Volatility', 'Liquidity', 'Fundamental'].map((label) => (
-          <div key={label} className="rounded-lg border border-white/10 bg-[#0f1422] p-4">
-            <p className="text-xs uppercase tracking-wide text-white/50">{label}</p>
-            <p className="mt-2 text-2xl font-semibold">--</p>
-            <p className="text-xs text-white/40">Analysis coming soon</p>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
+  )
 }
