@@ -1,2 +1,2 @@
 // Shared components
-export {};
+export { SymbolSearch } from "./SymbolSearch"
