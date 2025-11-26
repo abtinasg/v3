@@ -1,5 +1,5 @@
 // Deep - Prisma Schema
-// PostgreSQL Database (Supabase)
+// PostgreSQL Database (Neon)
 
 generator client {
   provider = "prisma-client-js"

@@ -1,4 +1,5 @@
 import { ClerkProvider } from '@clerk/nextjs';
+import { dark } from '@clerk/themes';
 import "./globals.css";
 
 export default function RootLayout({
@@ -7,7 +8,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+      }}
+      afterSignOutUrl="/"
+    >
       <html lang="en">
         <body className="min-h-screen antialiased bg-white dark:bg-black">
           {children}
