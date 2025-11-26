@@ -12,3 +12,6 @@ export { default as PerformanceChart } from "./PerformanceChart";
 
 export { NewsFeed } from "./NewsFeed";
 export { default as NewsFeed } from "./NewsFeed";
+
+export { StudyList } from "./StudyList";
+export { default as StudyList } from "./StudyList";
