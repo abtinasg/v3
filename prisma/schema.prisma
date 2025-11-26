@@ -1,14 +1,141 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Deep - Prisma Schema
+// PostgreSQL Database (Supabase)
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================
+// USER & PROFILE MANAGEMENT
+// ============================================
+
+model UserProfile {
+  id                String   @id @default(uuid()) @db.Uuid
+  clerkId           String   @unique @map("clerk_id")
+  email             String
+  name              String?
+  deepScore         Int?     @map("deep_score")
+  personalityType   String?  @map("personality_type") // cautious-saver, steady-builder, growth-hunter, strategic-analyst, trend-surfer
+  riskTolerance     String?  @map("risk_tolerance") // conservative, moderate, aggressive
+  experienceLevel   String?  @map("experience_level") // beginner, intermediate, advanced
+  subscription      String   @default("free") // free, pro
+  aiQuestionsToday  Int      @default(0) @map("ai_questions_today")
+  lastQuestionDate  DateTime? @map("last_question_date")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  scoreResponses    ScoreResponse[]
+  studyLists        StudyList[]
+  aiConversations   AiConversation[]
+
+  @@index([clerkId])
+  @@map("user_profiles")
+}
+
+// ============================================
+// DEEP SCORE ASSESSMENT
+// ============================================
+
+model ScoreResponse {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  questionId String   @map("question_id")
+  answer     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("score_responses")
+}
+
+// ============================================
+// STUDY LISTS (WATCHLISTS)
+// ============================================
+
+model StudyList {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @default("My Study List")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user  UserProfile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items StudyListItem[]
+
+  @@map("study_lists")
+}
+
+model StudyListItem {
+  id      String   @id @default(uuid()) @db.Uuid
+  listId  String   @map("list_id") @db.Uuid
+  symbol  String
+  addedAt DateTime @default(now()) @map("added_at")
+
+  // Relations
+  list StudyList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, symbol])
+  @@index([listId, symbol])
+  @@map("study_list_items")
+}
+
+// ============================================
+// AI CHAT SYSTEM
+// ============================================
+
+model AiConversation {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  contextType   String   @map("context_type") // terminal, stock, general
+  contextSymbol String?  @map("context_symbol")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           String   // user, assistant
+  content        String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("ai_messages")
+}
+
+// ============================================
+// CACHING LAYER
+// ============================================
+
+model StockCache {
+  symbol    String   @id
+  dataType  String   @map("data_type") // quote, fundamentals, risk
+  data      Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([updatedAt])
+  @@map("stock_cache")
+}
+
+model ExplanationCache {
+  id          String   @id // metric_id or indicator_id
+  explanation String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("explanation_cache")
 }

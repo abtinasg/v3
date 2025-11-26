@@ -28,7 +28,7 @@ Real-time:       WebSocket (market data stream)
 ```
 Runtime:         Node.js 20 LTS
 Framework:       Next.js API Routes + tRPC (optional)
-Database:        PostgreSQL (Supabase)
+Database:        PostgreSQL (Neon)
 Cache:           Redis (Upstash)
 Queue:           BullMQ (background jobs)
 ```
@@ -39,7 +39,7 @@ Router:          OpenRouter API
 Primary Model:   Claude 3.5 Sonnet (analysis)
 Fallback:        GPT-4o-mini (simple explanations)
 Embeddings:      text-embedding-3-small
-Vector DB:       Supabase pgvector
+Vector DB:       Neon pgvector
 ```
 
 ### Auth & Payments
@@ -59,7 +59,7 @@ News:            Alpha Vantage News / Finnhub News
 ### Infrastructure
 ```
 Hosting:         Vercel (frontend + API)
-Database:        Supabase (PostgreSQL + pgvector)
+Database:        Neon (PostgreSQL + pgvector)
 Cache:           Upstash Redis
 CDN:             Vercel Edge
 Monitoring:      Vercel Analytics + Sentry
@@ -86,7 +86,7 @@ Monitoring:      Vercel Analytics + Sentry
        ▼              ▼              ▼                ▼
 ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
 │ Yahoo/FMP    │ │  PostgreSQL  │ │  OpenRouter  │ │    Clerk     │
-│ Finnhub/FRED │ │  (Supabase)  │ │  (AI Models) │ │   (Auth)     │
+│ Finnhub/FRED │ │    (Neon)    │ │  (AI Models) │ │   (Auth)     │
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
                         │
                         ▼
