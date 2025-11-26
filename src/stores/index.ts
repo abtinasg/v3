@@ -1,2 +1,2 @@
 // Zustand stores
-export {};
+export { useTerminalStore } from "./terminal"
