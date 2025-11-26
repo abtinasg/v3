@@ -11,7 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Badge } from "@/components/ui/badge"
-import { searchSymbols, type SymbolSearchResult } from "@/lib/market"
+import { useDebounce, useSearch, type SearchResult } from "@/hooks"
 
 const RECENT_STORAGE_KEY = "symbol-search-recent"
 const MAX_RECENT_ITEMS = 5
@@ -25,8 +25,9 @@ interface SymbolSearchProps {
 export function SymbolSearch({ isOpen, onClose, onSelect }: SymbolSearchProps) {
   const [open, setOpen] = useState(isOpen)
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<SymbolSearchResult[]>([])
-  const [recent, setRecent] = useState<SymbolSearchResult[]>([])
+  const [recent, setRecent] = useState<SearchResult[]>([])
+  const debouncedQuery = useDebounce(query, 300)
+  const { data: results = [], isLoading } = useSearch(debouncedQuery)
 
   useEffect(() => {
     setOpen(isOpen)
@@ -38,7 +39,7 @@ export function SymbolSearch({ isOpen, onClose, onSelect }: SymbolSearchProps) {
     try {
       const stored = window.localStorage.getItem(RECENT_STORAGE_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored) as SymbolSearchResult[]
+        const parsed = JSON.parse(stored) as SearchResult[]
         setRecent(parsed)
       }
     } catch (error) {
@@ -61,30 +62,7 @@ export function SymbolSearch({ isOpen, onClose, onSelect }: SymbolSearchProps) {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  useEffect(() => {
-    let isCancelled = false
-
-    const handler = setTimeout(async () => {
-      const trimmed = query.trim()
-
-      if (!trimmed) {
-        setResults([])
-        return
-      }
-
-      const found = await searchSymbols(trimmed)
-      if (!isCancelled) {
-        setResults(found)
-      }
-    }, 300)
-
-    return () => {
-      isCancelled = true
-      clearTimeout(handler)
-    }
-  }, [query])
-
-  const persistRecent = useCallback((items: SymbolSearchResult[]) => {
+  const persistRecent = useCallback((items: SearchResult[]) => {
     try {
       window.localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(items))
     } catch (error) {
@@ -98,7 +76,7 @@ export function SymbolSearch({ isOpen, onClose, onSelect }: SymbolSearchProps) {
   }, [onClose])
 
   const handleSelect = useCallback(
-    (item: SymbolSearchResult) => {
+    (item: SearchResult) => {
       setRecent((prev) => {
         const filtered = prev.filter((entry) => entry.symbol !== item.symbol)
         const updated = [item, ...filtered].slice(0, MAX_RECENT_ITEMS)
@@ -113,10 +91,12 @@ export function SymbolSearch({ isOpen, onClose, onSelect }: SymbolSearchProps) {
   )
 
   const emptyMessage = useMemo(() => {
+    if (isLoading) return "Searching..."
+
     const trimmed = query.trim()
     if (!trimmed) return "Type to search for stocks..."
     return `No stocks found for '${trimmed}'`
-  }, [query])
+  }, [isLoading, query])
 
   return (
     <CommandDialog
@@ -159,6 +139,13 @@ export function SymbolSearch({ isOpen, onClose, onSelect }: SymbolSearchProps) {
         )}
 
         <CommandGroup heading="Search results">
+          {isLoading && (
+            <CommandItem disabled>
+              <div className="flex flex-1 flex-col text-left text-muted-foreground">
+                Searching...
+              </div>
+            </CommandItem>
+          )}
           {results.map((item) => (
             <CommandItem
               key={item.symbol}

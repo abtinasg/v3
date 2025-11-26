@@ -1,7 +1,6 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { useState, useEffect, useCallback } from "react"
 import type {
   StockQuote,
   FundamentalMetrics,
@@ -216,34 +215,24 @@ export function useChart(symbol: string, range: string = "1M") {
 
 /**
  * Search for stock/ETF symbols
- * Debounced by 300ms
  * Enabled when query length >= 1
  */
 export function useSearch(query: string) {
-  const [debouncedQuery, setDebouncedQuery] = useState(query)
-
-  // Debounce the query by 300ms
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query)
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [query])
+  const trimmedQuery = query.trim()
 
   return useQuery({
-    queryKey: ["stock", "search", debouncedQuery],
+    queryKey: ["stock", "search", trimmedQuery],
     queryFn: async (): Promise<SearchResult[]> => {
       const data = await fetchAPI<SearchResponse>("/api/stocks/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: debouncedQuery }),
+        body: JSON.stringify({ query: trimmedQuery }),
       })
       return data.results
     },
-    enabled: debouncedQuery.length >= 1,
+    enabled: trimmedQuery.length >= 1,
     staleTime: 5 * 60_000, // 5 minutes
   })
 }
